@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "blog": " nodemon ./services/blog/server.js",
-    "auth": "nodemon ./services/auth/server.js"
+    "auth": "nodemon ./services/auth/server.js",
+    "main": "nodemon ./main/main.js",
+    "start":"concurrently \"npm run blog\" \"npm run auth\" \" npm run main\""
   },
   "author": "",
   "license": "ISC",
