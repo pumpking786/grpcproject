@@ -3,6 +3,7 @@ const { authStub, blogStub } = require("./grpc/client");
 const grpc = require("@grpc/grpc-js");
 const authRoutes = require("./routes/authRoute");
 const blogRoutes = require("./routes/blogRoute");
+const analyticsRoutes = require("./routes/analyticsRoute");
 
 const app = express();
 app.use(express.json());
@@ -47,6 +48,7 @@ const authenticate = (req, res, next) => {
 // Mount routes
 app.use("/auth", authRoutes(grpcMethods, grpc.status));
 app.use("/blogs", blogRoutes(grpcMethods, grpc.status, authenticate, grpc));
+app.use("/analytics", analyticsRoutes());
 
 app.listen(3000, () => {
   console.log("Server running on port 3000");
