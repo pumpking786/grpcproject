@@ -46,6 +46,26 @@ async function createBlog(call, callback) {
 
   const { title, content, author } = call.request;
 
+  // Validate title, content, and author
+  if (!title || title.trim() === "") {
+    return callback({
+      code: grpc.status.INVALID_ARGUMENT,
+      details: "Title is required and cannot be empty",
+    });
+  }
+  if (!content || content.trim() === "") {
+    return callback({
+      code: grpc.status.INVALID_ARGUMENT,
+      details: "Content is required and cannot be empty",
+    });
+  }
+  if (!author || author.trim() === "") {
+    return callback({
+      code: grpc.status.INVALID_ARGUMENT,
+      details: "Author is required and cannot be empty",
+    });
+  }
+
   try {
     const user = await User.findByPk(decoded.userId);
     if (!user) {
@@ -58,7 +78,7 @@ async function createBlog(call, callback) {
     const newBlog = await Blog.create({
       title,
       content,
-      author: author || null,
+      author,
       userId: decoded.userId,
       likes: 0,
       dislikes: 0,
@@ -66,9 +86,9 @@ async function createBlog(call, callback) {
 
     callback(null, {
       blogId: newBlog.blogId.toString(),
-      title: newBlog.title || "",
-      content: newBlog.content || "",
-      author: newBlog.author || "",
+      title: newBlog.title,
+      content: newBlog.content,
+      author: newBlog.author,
       likes: newBlog.likes,
       dislikes: newBlog.dislikes,
     });
@@ -89,9 +109,9 @@ async function getBlog(call, callback) {
     if (blog) {
       callback(null, {
         blogId: blog.blogId.toString(),
-        title: blog.title || "",
-        content: blog.content || "",
-        author: blog.author || "",
+        title: blog.title,
+        content: blog.content,
+        author: blog.author,
         likes: blog.likes,
         dislikes: blog.dislikes,
       });
@@ -117,9 +137,9 @@ async function getAllBlogs(call, callback) {
     callback(null, {
       blogs: blogs.map((blog) => ({
         blogId: blog.blogId.toString(),
-        title: blog.title || "",
-        content: blog.content || "",
-        author: blog.author || "",
+        title: blog.title,
+        content: blog.content,
+        author: blog.author,
         likes: blog.likes,
         dislikes: blog.dislikes,
       })),
@@ -166,9 +186,9 @@ async function updateBlog(call, callback) {
 
     callback(null, {
       blogId: blog.blogId.toString(),
-      title: blog.title || "",
-      content: blog.content || "",
-      author: blog.author || "",
+      title: blog.title,
+      content: blog.content,
+      author: blog.author,
       likes: blog.likes,
       dislikes: blog.dislikes,
     });
@@ -236,9 +256,9 @@ async function likeBlog(call, callback) {
 
     callback(null, {
       blogId: blog.blogId.toString(),
-      title: blog.title || "",
-      content: blog.content || "",
-      author: blog.author || "",
+      title: blog.title,
+      content: blog.content,
+      author: blog.author,
       likes: blog.likes,
       dislikes: blog.dislikes,
     });
@@ -272,9 +292,9 @@ async function dislikeBlog(call, callback) {
 
     callback(null, {
       blogId: blog.blogId.toString(),
-      title: blog.title || "",
-      content: blog.content || "",
-      author: blog.author || "",
+      title: blog.title,
+      content: blog.content,
+      author: blog.author,
       likes: blog.likes,
       dislikes: blog.dislikes,
     });
