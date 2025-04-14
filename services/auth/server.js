@@ -1,13 +1,14 @@
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken"); // Import the jsonwebtoken package
+const jwt = require("jsonwebtoken");
 const User = require("../../models/User");
 
-// Secret key for signing JWT tokens (In production, store this securely)
-const JWT_SECRET_KEY = "your-secret-key"; // You can use environment variables for better security
-// Load the blog.proto file
-const ProtoPath = "./proto/auth.proto"; // Adjust the path as needed
+// Secret key for signing JWT tokens
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || "your-secret-key";
+
+// Load the auth.proto file
+const ProtoPath = "./proto/auth.proto";
 const packageDefinition = protoLoader.loadSync(ProtoPath);
 const authProto = grpc.loadPackageDefinition(packageDefinition).AuthService;
 
@@ -37,9 +38,7 @@ async function register(call, callback) {
   }
 
   try {
-    // 🔒 Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const [user, created] = await User.findOrCreate({
       where: { username },
       defaults: { password: hashedPassword },
@@ -54,7 +53,7 @@ async function register(call, callback) {
 
     callback(null, { success: true });
   } catch (err) {
-    console.error(err);
+    console.error("Register error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Something went wrong",
@@ -62,7 +61,6 @@ async function register(call, callback) {
   }
 }
 
-// Login function to authenticate a user and return a JWT token
 async function login(call, callback) {
   const { username, password } = call.request;
 
@@ -76,7 +74,6 @@ async function login(call, callback) {
       });
     }
 
-    // 🔒 Compare entered password with stored hashed password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return callback({
@@ -91,9 +88,10 @@ async function login(call, callback) {
       { expiresIn: "1h" }
     );
 
+    console.log("Generated token:", token); // Debug token
     callback(null, { token });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Login failed",
@@ -117,7 +115,7 @@ server.bindAsync(
   }
 );
 
-// Optional: graceful shutdown
+// Graceful shutdown
 process.on("SIGINT", () => {
   console.log("Shutting down Auth gRPC server...");
   server.forceShutdown();

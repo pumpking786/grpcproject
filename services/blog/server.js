@@ -1,27 +1,79 @@
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
-const Blog = require("../../models/Blog"); // Import the Sequelize Blog model
+const jwt = require("jsonwebtoken");
+const Blog = require("../../models/Blog");
+const User = require("../../models/User");
+
+// Secret key for verifying JWT tokens
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || "your-secret-key";
+
 // Load the blog.proto file
-const ProtoPath = "./proto/blog.proto"; // Adjust the path as needed
+const ProtoPath = "./proto/blog.proto";
 const packageDefinition = protoLoader.loadSync(ProtoPath);
 const blogProto = grpc.loadPackageDefinition(packageDefinition).BlogService;
 
-// Function to handle creating a new blog
-async function createBlog(call, callback) {
+// Function to verify JWT token from metadata
+function verifyToken(call, callback) {
+  const token = call.metadata.get("authorization")[0];
+  if (!token) {
+    return callback({
+      code: grpc.status.UNAUTHENTICATED,
+      details: "No token provided",
+    });
+  }
+
   try {
-    const { title, content, author } = call.request;
+    const cleanToken = token.startsWith("Bearer ")
+      ? token.replace("Bearer ", "")
+      : token;
+    console.log("Verifying token:", cleanToken); // Debug token
+    const decoded = jwt.verify(cleanToken, JWT_SECRET_KEY);
+    return decoded; // Returns { userId, username }
+  } catch (err) {
+    console.error("Token verification error:", err.message);
+    return callback({
+      code: grpc.status.UNAUTHENTICATED,
+      details:
+        err.name === "TokenExpiredError" ? "Token expired" : "Invalid token",
+    });
+  }
+}
+
+// Function to handle creating a new blog (protected)
+async function createBlog(call, callback) {
+  const decoded = verifyToken(call, callback);
+  if (!decoded) return;
+
+  const { title, content, author } = call.request;
+
+  try {
+    const user = await User.findByPk(decoded.userId);
+    if (!user) {
+      return callback({
+        code: grpc.status.NOT_FOUND,
+        details: "User not found",
+      });
+    }
 
     const newBlog = await Blog.create({
       title,
       content,
-      author,
+      author: author || null,
+      userId: decoded.userId,
       likes: 0,
       dislikes: 0,
     });
 
-    callback(null, newBlog);
+    callback(null, {
+      blogId: newBlog.blogId.toString(),
+      title: newBlog.title || "",
+      content: newBlog.content || "",
+      author: newBlog.author || "",
+      likes: newBlog.likes,
+      dislikes: newBlog.dislikes,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Create blog error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Error creating blog",
@@ -29,13 +81,20 @@ async function createBlog(call, callback) {
   }
 }
 
-// Function to handle getting a blog by ID
+// Function to handle getting a blog by ID (public)
 async function getBlog(call, callback) {
   try {
     const blog = await Blog.findByPk(call.request.blogId);
 
     if (blog) {
-      callback(null, blog);
+      callback(null, {
+        blogId: blog.blogId.toString(),
+        title: blog.title || "",
+        content: blog.content || "",
+        author: blog.author || "",
+        likes: blog.likes,
+        dislikes: blog.dislikes,
+      });
     } else {
       callback({
         code: grpc.status.NOT_FOUND,
@@ -43,7 +102,7 @@ async function getBlog(call, callback) {
       });
     }
   } catch (err) {
-    console.error(err);
+    console.error("Get blog error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Error fetching blog",
@@ -51,13 +110,22 @@ async function getBlog(call, callback) {
   }
 }
 
-// Function to handle getting all blogs
+// Function to handle getting all blogs (public)
 async function getAllBlogs(call, callback) {
   try {
     const blogs = await Blog.findAll();
-    callback(null, { blogs });
+    callback(null, {
+      blogs: blogs.map((blog) => ({
+        blogId: blog.blogId.toString(),
+        title: blog.title || "",
+        content: blog.content || "",
+        author: blog.author || "",
+        likes: blog.likes,
+        dislikes: blog.dislikes,
+      })),
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Get all blogs error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Error fetching blogs",
@@ -65,37 +133,47 @@ async function getAllBlogs(call, callback) {
   }
 }
 
-// Function to handle updating a blog
+// Function to handle updating a blog (protected)
 async function updateBlog(call, callback) {
+  const decoded = verifyToken(call, callback);
+  if (!decoded) return;
+
+  const { blogId, title, content, author, likes, dislikes } = call.request;
+
   try {
-    const blog = await Blog.findByPk(call.request.blogId);
-
-    if (blog) {
-      // Update the title, content, and author only if provided
-      blog.title = call.request.title || blog.title;
-      blog.content = call.request.content || blog.content;
-      blog.author = call.request.author || blog.author;
-
-      // Update likes and dislikes if provided
-      if (typeof call.request.likes !== "undefined") {
-        blog.likes = call.request.likes;
-      }
-
-      if (typeof call.request.dislikes !== "undefined") {
-        blog.dislikes = call.request.dislikes;
-      }
-
-      await blog.save(); // Save the updated blog
-
-      callback(null, blog); // Return the updated blog
-    } else {
-      callback({
+    const blog = await Blog.findByPk(blogId);
+    if (!blog) {
+      return callback({
         code: grpc.status.NOT_FOUND,
         details: "Blog not found",
       });
     }
+
+    if (blog.userId !== decoded.userId) {
+      return callback({
+        code: grpc.status.PERMISSION_DENIED,
+        details: "You can only edit your own blogs",
+      });
+    }
+
+    blog.title = title || blog.title;
+    blog.content = content || blog.content;
+    blog.author = author || blog.author;
+    if (typeof likes !== "undefined") blog.likes = likes;
+    if (typeof dislikes !== "undefined") blog.dislikes = dislikes;
+
+    await blog.save();
+
+    callback(null, {
+      blogId: blog.blogId.toString(),
+      title: blog.title || "",
+      content: blog.content || "",
+      author: blog.author || "",
+      likes: blog.likes,
+      dislikes: blog.dislikes,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Update blog error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Error updating blog",
@@ -103,22 +181,33 @@ async function updateBlog(call, callback) {
   }
 }
 
-// Function to handle deleting a blog
+// Function to handle deleting a blog (protected)
 async function deleteBlog(call, callback) {
-  try {
-    const blog = await Blog.findByPk(call.request.blogId);
+  const decoded = verifyToken(call, callback);
+  if (!decoded) return;
 
-    if (blog) {
-      await blog.destroy(); // Delete the blog from the database
-      callback(null, { success: true, message: "Blog deleted successfully" });
-    } else {
-      callback({
+  const { blogId } = call.request;
+
+  try {
+    const blog = await Blog.findByPk(blogId);
+    if (!blog) {
+      return callback({
         code: grpc.status.NOT_FOUND,
         details: "Blog not found",
       });
     }
+
+    if (blog.userId !== decoded.userId) {
+      return callback({
+        code: grpc.status.PERMISSION_DENIED,
+        details: "You can only delete your own blogs",
+      });
+    }
+
+    await blog.destroy();
+    callback(null, { success: true, message: "Blog deleted successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Delete blog error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Error deleting blog",
@@ -126,23 +215,35 @@ async function deleteBlog(call, callback) {
   }
 }
 
-// Function to handle liking a blog
+// Function to handle liking a blog (protected)
 async function likeBlog(call, callback) {
-  try {
-    const blog = await Blog.findByPk(call.request.blogId);
+  const decoded = verifyToken(call, callback);
+  if (!decoded) return;
 
-    if (blog) {
-      blog.likes += 1;
-      await blog.save(); // Save the updated blog
-      callback(null, blog);
-    } else {
-      callback({
+  const { blogId } = call.request;
+
+  try {
+    const blog = await Blog.findByPk(blogId);
+    if (!blog) {
+      return callback({
         code: grpc.status.NOT_FOUND,
         details: "Blog not found",
       });
     }
+
+    blog.likes += 1;
+    await blog.save();
+
+    callback(null, {
+      blogId: blog.blogId.toString(),
+      title: blog.title || "",
+      content: blog.content || "",
+      author: blog.author || "",
+      likes: blog.likes,
+      dislikes: blog.dislikes,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Like blog error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Error liking blog",
@@ -150,29 +251,42 @@ async function likeBlog(call, callback) {
   }
 }
 
-// Function to handle disliking a blog
+// Function to handle disliking a blog (protected)
 async function dislikeBlog(call, callback) {
-  try {
-    const blog = await Blog.findByPk(call.request.blogId);
+  const decoded = verifyToken(call, callback);
+  if (!decoded) return;
 
-    if (blog) {
-      blog.dislikes += 1;
-      await blog.save(); // Save the updated blog
-      callback(null, blog);
-    } else {
-      callback({
+  const { blogId } = call.request;
+
+  try {
+    const blog = await Blog.findByPk(blogId);
+    if (!blog) {
+      return callback({
         code: grpc.status.NOT_FOUND,
         details: "Blog not found",
       });
     }
+
+    blog.dislikes += 1;
+    await blog.save();
+
+    callback(null, {
+      blogId: blog.blogId.toString(),
+      title: blog.title || "",
+      content: blog.content || "",
+      author: blog.author || "",
+      likes: blog.likes,
+      dislikes: blog.dislikes,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Dislike blog error:", err);
     callback({
       code: grpc.status.INTERNAL,
       details: "Error disliking blog",
     });
   }
 }
+
 // Create a gRPC server
 const server = new grpc.Server();
 
@@ -187,7 +301,7 @@ server.addService(blogProto.service, {
   dislikeBlog,
 });
 
-// Start the server on port 50051
+// Start the server on port 50052
 server.bindAsync(
   "0.0.0.0:50052",
   grpc.ServerCredentials.createInsecure(),
@@ -196,3 +310,10 @@ server.bindAsync(
     server.start();
   }
 );
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+  console.log("Shutting down Blog gRPC server...");
+  server.forceShutdown();
+  process.exit();
+});

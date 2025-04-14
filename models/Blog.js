@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // Make sure to export the Sequelize instance from db.js
+const sequelize = require("../config/db");
 
 const Blog = sequelize.define(
   "Blog",
@@ -31,9 +31,16 @@ const Blog = sequelize.define(
       allowNull: true, // Dislikes is optional
       defaultValue: 0, // Default value for dislikes (0)
     },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false, // Foreign key should not be null (assuming every blog must have an author)
+      references: {
+        model: "Users", // References the User table
+        key: "id", // References the id field in User
+      },
+    },
   },
   {
-    // Optional: additional table options (e.g., timestamps)
     timestamps: true, // Create createdAt and updatedAt fields
   }
 );
