@@ -21,6 +21,9 @@ service BlogService {
 
     // Dislike a blog post
     rpc DislikeBlog (LikeDislikeRequest) returns (BlogResponse);
+
+    // Get liked blogs
+     rpc GetLikedBlogs (Empty) returns (GetLikedBlogsResponse);
 }
 
 // Request for creating a new blog post
@@ -66,6 +69,10 @@ message BlogResponse {
 // Response for retrieving all blogs
 message GetAllBlogsResponse {
     repeated BlogResponse blogs = 1;  // List of blog posts
+}
+
+message GetLikedBlogsResponse {
+    repeated BlogResponse blogs = 1;  // List of blogs liked by user
 }
 
 // Response for deleting a blog post

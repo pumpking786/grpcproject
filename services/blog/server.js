@@ -3,6 +3,7 @@ const protoLoader = require("@grpc/proto-loader");
 const jwt = require("jsonwebtoken");
 const Blog = require("../../models/Blog");
 const User = require("../../models/User");
+const BlogLike = require("../../models/BlogLike");
 
 // Secret key for verifying JWT tokens
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || "your-secret-key";
@@ -41,10 +42,8 @@ function withAuth(handler) {
   };
 }
 
-
 // Function to handle creating a new blog (protected)
 async function createBlog(call, callback) {
-
   const { title, content, author } = call.request;
 
   // Validate title, content, and author
@@ -156,9 +155,7 @@ async function getAllBlogs(call, callback) {
 
 // Function to handle updating a blog (protected)
 async function updateBlog(call, callback) {
- 
-
-  const { blogId, title, content, author} = call.request;
+  const { blogId, title, content, author } = call.request;
 
   try {
     const blog = await Blog.findByPk(blogId);
@@ -201,7 +198,6 @@ async function updateBlog(call, callback) {
 
 // Function to handle deleting a blog (protected)
 async function deleteBlog(call, callback) {
-
   const { blogId } = call.request;
 
   try {
@@ -233,8 +229,8 @@ async function deleteBlog(call, callback) {
 
 // Function to handle liking a blog (protected)
 async function likeBlog(call, callback) {
-
   const { blogId } = call.request;
+  const userId = call.user.userId;
 
   try {
     const blog = await Blog.findByPk(blogId);
@@ -244,6 +240,20 @@ async function likeBlog(call, callback) {
         details: "Blog not found",
       });
     }
+
+    // Check if user already liked this blog
+    const existingLike = await BlogLike.findOne({
+      where: { blogId, userId },
+    });
+
+    if (existingLike) {
+      return callback({
+        code: grpc.status.ALREADY_EXISTS,
+        details: "User already liked this blog",
+      });
+    }
+
+    await BlogLike.create({ blogId, userId });
 
     blog.likes += 1;
     await blog.save();
@@ -267,7 +277,6 @@ async function likeBlog(call, callback) {
 
 // Function to handle disliking a blog (protected)
 async function dislikeBlog(call, callback) {
-
   const { blogId } = call.request;
 
   try {
