@@ -415,6 +415,45 @@ async function getLikedBlogs(call, callback) {
   }
 }
 
+async function getDislikedBlogs(call, callback) {
+  const userId = call.user.userId;
+
+  try {
+    const dislikedEntries = await BlogLikeDislike.findAll({
+      where: {
+        userId,
+        dislike: true
+      },
+      include: [
+        {
+          model: Blog,
+          required: true
+        }
+      ]
+    });
+
+    const response = dislikedEntries.map(entry => {
+      const blog = entry.Blog;
+      return {
+        blogId: blog.blogId.toString(),
+        title: blog.title,
+        content: blog.content,
+        author: blog.author,
+        likes: blog.likes,
+        dislikes: blog.dislikes
+      };
+    });
+
+    callback(null, { blogs: response });
+  } catch (err) {
+    console.error("Get disliked blogs error:", err);
+    callback({
+      code: grpc.status.INTERNAL,
+      details: "Error fetching disliked blogs"
+    });
+  }
+}
+
 // Create a gRPC server
 const server = new grpc.Server();
 
@@ -427,7 +466,8 @@ server.addService(blogProto.service, {
   deleteBlog: withAuth(deleteBlog),
   likeBlog: withAuth(likeBlog),
   dislikeBlog: withAuth(dislikeBlog),
-  getLikedBlogs: withAuth(getLikedBlogs)
+  getLikedBlogs: withAuth(getLikedBlogs),
+  getDislikedBlogs:withAuth(getDislikedBlogs)
 });
 
 // Start the server on port 50052
