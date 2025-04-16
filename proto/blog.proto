@@ -28,6 +28,8 @@ service BlogService {
     // Get disliked blogs
      rpc GetDislikedBlogs (Empty) returns (GetDislikedBlogsResponse);
 
+    //Get analytics
+     rpc GetAnalytics(Empty) returns (AnalyticsResponse);
 }
 
 // Request for creating a new blog post
@@ -87,6 +89,11 @@ message GetDislikedBlogsResponse {
 message DeleteBlogResponse {
     bool success = 1;    // Indicates whether the deletion was successful
     string message = 2;  // A message like "Blog deleted successfully"
+}
+
+message AnalyticsResponse {
+  int32 totalUsers = 1;
+  int32 totalBlogs = 2;
 }
 
 // Empty message for requests that don't need any input data
