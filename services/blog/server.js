@@ -454,6 +454,25 @@ async function getDislikedBlogs(call, callback) {
   }
 }
 
+async function getAnalytics(call, callback) {
+  try {
+    const totalUsers = await User.count();
+    const totalBlogs = await Blog.count();
+
+    callback(null, {
+      totalUsers,
+      totalBlogs
+    });
+  } catch (err) {
+    console.error("Analytics fetch error:", err);
+    callback({
+      code: grpc.status.INTERNAL,
+      details: "Error fetching analytics"
+    });
+  }
+}
+
+
 // Create a gRPC server
 const server = new grpc.Server();
 
@@ -467,7 +486,8 @@ server.addService(blogProto.service, {
   likeBlog: withAuth(likeBlog),
   dislikeBlog: withAuth(dislikeBlog),
   getLikedBlogs: withAuth(getLikedBlogs),
-  getDislikedBlogs:withAuth(getDislikedBlogs)
+  getDislikedBlogs:withAuth(getDislikedBlogs),
+  getAnalytics
 });
 
 // Start the server on port 50052
