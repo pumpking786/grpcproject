@@ -255,9 +255,24 @@ async function likeBlog(call, callback) {
 
     if (existingEntry) {
       if (existingEntry.like) {
-        return callback({
-          code: grpc.status.ALREADY_EXISTS,
-          details: "User already liked this blog",
+        // User already liked → remove like (toggle off)
+        await BlogLikeDislike.destroy({
+          where: { blogId, userId },
+        });
+
+        await Blog.update(
+          { likes: blog.likes - 1 },
+          { where: { blogId } }
+        );
+
+        return callback(null, {
+          message: "You unliked the blog",
+          blogId: blog.blogId.toString(),
+          title: blog.title,
+          content: blog.content,
+          author: blog.author,
+          likes: blog.likes - 1,
+          dislikes: blog.dislikes,
         });
       }
 
@@ -325,9 +340,24 @@ async function dislikeBlog(call, callback) {
 
     if (existingEntry) {
       if (existingEntry.dislike) {
-        return callback({
-          code: grpc.status.ALREADY_EXISTS,
-          details: "User already disliked this blog",
+        // User already disliked → remove dislike (toggle off)
+        await BlogLikeDislike.destroy({
+          where: { blogId, userId },
+        });
+
+        await Blog.update(
+          { dislikes: blog.dislikes - 1 },
+          { where: { blogId } }
+        );
+
+        return callback(null, {
+          message: "You removed your dislike",
+          blogId: blog.blogId.toString(),
+          title: blog.title,
+          content: blog.content,
+          author: blog.author,
+          likes: blog.likes,
+          dislikes: blog.dislikes - 1,
         });
       }
 
