@@ -1,6 +1,6 @@
 const { Sequelize } = require("sequelize");
 
-const sequelize = new Sequelize("grpctask", "root", "password", {
+const sequelize = new Sequelize("grpctask", "root", "", {
   host: "localhost",
   dialect: "mysql",
 });
