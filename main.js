@@ -34,10 +34,10 @@ app.post("/register", (req, res) => {
   authStub.register({ username, password }, (err, response) => {
     if (err) {
       console.error("gRPC register error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ success: response.success });
+    res.status(200).json({ success: response.success });
   });
 });
 
@@ -47,10 +47,10 @@ app.post("/login", (req, res) => {
   authStub.login({ username, password }, (err, response) => {
     if (err) {
       console.error("gRPC login error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ token: response.token });
+    res.status(200).json({ token: response.token });
   });
 });
 
@@ -58,10 +58,10 @@ app.get("/getAllBlogs", (req, res) => {
   blogStub.getAllBlogs({}, (err, response) => {
     if (err) {
       console.error("gRPC getAllBlog error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ blogs: response });
+    res.status(200).json({ blogs: response });
   });
 });
 app.get("/getBlog/:blogId", (req, res) => {
@@ -69,29 +69,41 @@ app.get("/getBlog/:blogId", (req, res) => {
   blogStub.getBlog({ blogId }, (err, response) => {
     if (err) {
       console.error("gRPC getBlog error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ blog: response });
+    res.status(200).json({ blog: response });
   });
 });
 
-app.post("/createBlog",(req, res) => {
+app.post("/createBlog", verifyToken, (req, res) => {
   const { title, content, author } = req.body;
 
-  blogStub.createBlog({ title, content, author }, (err, response) => {
+  const metadata = new grpc.Metadata();
+  metadata.add(
+    "authorization",
+    `Bearer ${req.headers.authorization.split(" ")[1]}`
+  );
+
+  blogStub.createBlog({ title, content, author }, metadata, (err, response) => {
     if (err) {
       console.error("gRPC createBlog error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ "blog created:": response });
+    res.status(200).json({ "blog created:": response });
   });
 });
 
-app.put("/updateBlog/:blogId",(req, res) => {
+app.put("/updateBlog/:blogId", verifyToken, (req, res) => {
   const { blogId } = req.params;
   const { title, content, author } = req.body;
+
+  const metadata = new grpc.Metadata();
+  metadata.add(
+    "authorization",
+    `Bearer ${req.headers.authorization.split(" ")[1]}`
+  );
 
   blogStub.updateBlog(
     { blogId, title, content, author },
@@ -99,52 +111,68 @@ app.put("/updateBlog/:blogId",(req, res) => {
     (err, response) => {
       if (err) {
         console.error("gRPC updateBlog error:", err);
-        return res.json({ message: err.details });
+        return res.status(400).json({ message: err.details });
       }
 
-      res.json({ "blog updated:": response });
+      res.status(200).json({ "blog updated:": response });
     }
   );
 });
 
-app.delete("/deleteBlog/:blogId",  (req, res) => {
+app.delete("/deleteBlog/:blogId", verifyToken, (req, res) => {
   const { blogId } = req.params;
 
-  blogStub.deleteBlog({ blogId },(err, response) => {
+  const metadata = new grpc.Metadata();
+  metadata.add(
+    "authorization",
+    `Bearer ${req.headers.authorization.split(" ")[1]}`
+  );
+
+  blogStub.deleteBlog({ blogId }, metadata, (err, response) => {
     if (err) {
       console.error("gRPC deleteBlog error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ "blog deleted:": response });
+    res.status(200).json({ "blog deleted:": response });
   });
 });
 
-app.post("/likeBlog/:blogId",  (req, res) => {
+app.post("/likeBlog/:blogId", verifyToken, (req, res) => {
   const { blogId } = req.params;
 
+  const metadata = new grpc.Metadata();
+  metadata.add(
+    "authorization",
+    `Bearer ${req.headers.authorization.split(" ")[1]}`
+  );
 
-  blogStub.likeBlog({ blogId }, (err, response) => {
+  blogStub.likeBlog({ blogId }, metadata, (err, response) => {
     if (err) {
       console.error("gRPC likeBlog error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ "blog liked:": response });
+    res.status(200).json({ "blog liked:": response });
   });
 });
 
-app.post("/dislikeBlog/:blogId", (req, res) => {
+app.post("/dislikeBlog/:blogId", verifyToken, (req, res) => {
   const { blogId } = req.params;
 
+  const metadata = new grpc.Metadata();
+  metadata.add(
+    "authorization",
+    `Bearer ${req.headers.authorization.split(" ")[1]}`
+  );
 
-  blogStub.dislikeBlog({ blogId },(err, response) => {
+  blogStub.dislikeBlog({ blogId }, metadata, (err, response) => {
     if (err) {
       console.error("gRPC dislikeBlog error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ "blog disliked:": response });
+    res.status(200).json({ "blog disliked:": response });
   });
 });
 
@@ -152,10 +180,10 @@ app.get("/getanalytics", (req, res) => {
   blogStub.getAnalytics({}, (err, response) => {
     if (err) {
       console.error("gRPC getAllBlog error:", err);
-      return res.json({ message: err.details });
+      return res.status(400).json({ message: err.details });
     }
 
-    res.json({ Analytics: response });
+    res.status(200).json({ Analytics: response });
   });
 });
 
