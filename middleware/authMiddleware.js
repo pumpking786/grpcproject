@@ -1,7 +1,7 @@
-// middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
+const grpc = require("@grpc/grpc-js");
 
-const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || "your-secret-key";
+const JWT_SECRET_KEY = "your-secret-key";
 
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -17,6 +17,12 @@ function verifyToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET_KEY);
     req.user = decoded; // Attach user data to request
+
+    // Create gRPC metadata and attach to req
+    const metadata = new grpc.Metadata();
+    metadata.add("authorization", token);
+    req.grpcMetadata = metadata; // Attach metadata to req
+
     next(); // Continue to route
   } catch (err) {
     return res.status(401).json({
