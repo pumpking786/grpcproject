@@ -147,6 +147,27 @@ app.post("/dislikeBlog/:blogId", verifyToken, (req, res) => {
   });
 });
 
+app.get("/getLikedBlogs", verifyToken,(req,res)=>{
+  blogStub.getLikedBlogs({},req.grpcMetadata, (err, response) => {
+    if (err) {
+      console.error("gRPC getLikedBlogs error:", err);
+      return res.status(400).json({ message: err.details });
+    }
+
+    res.status(200).json({ blogs: response });
+  });
+})
+app.get("/getDislikedBlogs", verifyToken,(req,res)=>{
+  blogStub.getDislikedBlogs({},req.grpcMetadata, (err, response) => {
+    if (err) {
+      console.error("gRPC getDislikedBlogs error:", err);
+      return res.status(400).json({ message: err.details });
+    }
+
+    res.status(200).json({ blogs: response });
+  });
+})
+
 app.get("/getanalytics", (req, res) => {
   blogStub.getAnalytics({}, (err, response) => {
     if (err) {
