@@ -56,11 +56,10 @@ app.post("/login", (req, res) => {
 
 app.get("/getAllBlogs", verifyToken, (req, res) => {
   // Default values for filter, page, and pageSize
-  const { filter = "", page = 1, pageSize = 10 } = req.body || {};
+  const { page = 1, pageSize = 10 } = req.body || {};
 
   // Construct the request object to pass to the gRPC call
   const request = {
-    filter,
     page,
     pageSize,
   };
@@ -81,6 +80,30 @@ app.get("/getAllBlogs", verifyToken, (req, res) => {
   });
 });
 
+app.get("/getAllBlogs/:filter", verifyToken, (req, res) => {
+  const { filter } = req.params; // strictly required
+
+  const { page = 1, pageSize = 10 } = req.query;
+
+  const request = {
+    filter, // will be "liked" or "disliked"
+    page: parseInt(page, 10),
+    pageSize: parseInt(pageSize, 10),
+  };
+
+  blogStub.getAllBlogs(request, req.grpcMetadata, (err, response) => {
+    if (err) {
+      console.error("gRPC getAllBlogs error:", err);
+      return res.status(400).json({ message: err.details });
+    }
+
+    res.status(200).json({
+      blogs: response.blogs,
+      totalBlogs: response.totalBlogs,
+      totalPages: response.totalPages,
+    });
+  });
+});
 
 app.get("/getBlog/:blogId", (req, res) => {
   const { blogId } = req.params;
