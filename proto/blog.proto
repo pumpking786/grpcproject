@@ -1,100 +1,75 @@
 syntax = "proto3";
 
 service BlogService {
-    // Create a new blog post
     rpc CreateBlog (CreateBlogRequest) returns (BlogResponse);
-
-    // Get a blog post by ID
     rpc GetBlog (GetBlogRequest) returns (BlogResponse);
-
-    // Get all blog posts
-    rpc GetAllBlogs (Empty) returns (GetAllBlogsResponse);
-
-    // Update an existing blog post
+    rpc GetAllBlogs (GetAllBlogsRequest) returns (GetAllBlogsResponse);
     rpc UpdateBlog (UpdateBlogRequest) returns (BlogResponse);
-
-    // Delete a blog post
     rpc DeleteBlog (DeleteBlogRequest) returns (DeleteBlogResponse);
-
-    // Like a blog post
     rpc LikeBlog (LikeDislikeRequest) returns (BlogResponse);
-
-    // Dislike a blog post
     rpc DislikeBlog (LikeDislikeRequest) returns (BlogResponse);
-
-    // Get liked blogs
-     rpc GetLikedBlogs (Empty) returns (GetLikedBlogsResponse);
-
-    // Get disliked blogs
-     rpc GetDislikedBlogs (Empty) returns (GetDislikedBlogsResponse);
-
-    //Get analytics
-     rpc GetAnalytics(Empty) returns (AnalyticsResponse);
+    rpc GetAnalytics (Empty) returns (AnalyticsResponse);
 }
 
-// Request for creating a new blog post
+// Request messages
 message CreateBlogRequest {
     string title = 1;
     string content = 2;
     string author = 3;
 }
 
-// Request to update an existing blog post
 message UpdateBlogRequest {
-    string blogId = 1;  // Required to identify the blog to update
+    string blogId = 1;
     string title = 2;
     string content = 3;
     string author = 4;
 }
 
-// Request to get a blog post by ID
 message GetBlogRequest {
-    string blogId = 1;  // Required to retrieve a blog by ID
+    string blogId = 1;
 }
 
-// Request to delete a blog post
 message DeleteBlogRequest {
-    string blogId = 1;  // Required to delete a specific blog by ID
+    string blogId = 1;
 }
 
-// Request to like or dislike a blog post
 message LikeDislikeRequest {
-    string blogId = 1;  // Required to identify the blog to like or dislike
+    string blogId = 1;
 }
 
-// Response for a blog-related operation (create, update, get)
+// Pagination & filtering request for blogs
+message GetAllBlogsRequest {
+    int32 page = 1;
+    int32 pageSize = 2;
+    string filter = 3; // Optional: "liked", "disliked", or empty for all
+}
+
+// Response for a blog-related operation
 message BlogResponse {
     string blogId = 1;
     string title = 2;
     string content = 3;
     string author = 4;
-    int32 likes = 5;   // Number of likes
-    int32 dislikes = 6; // Number of dislikes
+    int32 likes = 5;
+    int32 dislikes = 6;
 }
 
-// Response for retrieving all blogs
+// Response for retrieving blogs
 message GetAllBlogsResponse {
-    repeated BlogResponse blogs = 1;  // List of blog posts
+    repeated BlogResponse blogs = 1;
+    int32 totalBlogs = 2;
+    int32 totalPages = 3;
 }
 
-message GetLikedBlogsResponse {
-    repeated BlogResponse blogs = 1;  // List of blogs liked by user
-}
-
-message GetDislikedBlogsResponse {
-    repeated BlogResponse blogs = 1;  // List of blogs disliked by user
-}
-
-// Response for deleting a blog post
-message DeleteBlogResponse {
-    bool success = 1;    // Indicates whether the deletion was successful
-    string message = 2;  // A message like "Blog deleted successfully"
-}
-
+// Analytics
 message AnalyticsResponse {
-  int32 totalUsers = 1;
-  int32 totalBlogs = 2;
+    int32 totalUsers = 1;
+    int32 totalBlogs = 2;
 }
 
-// Empty message for requests that don't need any input data
+message DeleteBlogResponse {
+    bool success = 1;
+    string message = 2;
+}
+
 message Empty {}
