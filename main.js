@@ -54,16 +54,33 @@ app.post("/login", (req, res) => {
   });
 });
 
-app.get("/getAllBlogs", (req, res) => {
-  blogStub.getAllBlogs({}, (err, response) => {
+app.get("/getAllBlogs", verifyToken, (req, res) => {
+  // Default values for filter, page, and pageSize
+  const { filter = "", page = 1, pageSize = 10 } = req.body || {};
+
+  // Construct the request object to pass to the gRPC call
+  const request = {
+    filter,
+    page,
+    pageSize,
+  };
+
+  // Call the gRPC method to get all blogs
+  blogStub.getAllBlogs(request, req.grpcMetadata, (err, response) => {
     if (err) {
-      console.error("gRPC getAllBlog error:", err);
+      console.error("gRPC getAllBlogs error:", err);
       return res.status(400).json({ message: err.details });
     }
 
-    res.status(200).json({ blogs: response });
+    // Send the response back to the client
+    res.status(200).json({
+      blogs: response.blogs,
+      totalBlogs: response.totalBlogs,
+      totalPages: response.totalPages
+    });
   });
 });
+
 
 app.get("/getBlog/:blogId", (req, res) => {
   const { blogId } = req.params;
@@ -147,26 +164,26 @@ app.post("/dislikeBlog/:blogId", verifyToken, (req, res) => {
   });
 });
 
-app.get("/getLikedBlogs", verifyToken,(req,res)=>{
-  blogStub.getLikedBlogs({},req.grpcMetadata, (err, response) => {
-    if (err) {
-      console.error("gRPC getLikedBlogs error:", err);
-      return res.status(400).json({ message: err.details });
-    }
+// app.get("/getLikedBlogs", verifyToken,(req,res)=>{
+//   blogStub.getLikedBlogs({},req.grpcMetadata, (err, response) => {
+//     if (err) {
+//       console.error("gRPC getLikedBlogs error:", err);
+//       return res.status(400).json({ message: err.details });
+//     }
 
-    res.status(200).json({ blogs: response });
-  });
-})
-app.get("/getDislikedBlogs", verifyToken,(req,res)=>{
-  blogStub.getDislikedBlogs({},req.grpcMetadata, (err, response) => {
-    if (err) {
-      console.error("gRPC getDislikedBlogs error:", err);
-      return res.status(400).json({ message: err.details });
-    }
+//     res.status(200).json({ blogs: response });
+//   });
+// })
+// app.get("/getDislikedBlogs", verifyToken,(req,res)=>{
+//   blogStub.getDislikedBlogs({},req.grpcMetadata, (err, response) => {
+//     if (err) {
+//       console.error("gRPC getDislikedBlogs error:", err);
+//       return res.status(400).json({ message: err.details });
+//     }
 
-    res.status(200).json({ blogs: response });
-  });
-})
+//     res.status(200).json({ blogs: response });
+//   });
+// })
 
 app.get("/getanalytics", (req, res) => {
   blogStub.getAnalytics({}, (err, response) => {
