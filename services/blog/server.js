@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 // const User = require("../../models/User");
 // const BlogLikeDislike = require("../../models/BlogLikeDislike");
 const { Blog, BlogLikeDislike, User } = require("../../models");
-
+const { Op } = require("sequelize");
 
 // Secret key for verifying JWT tokens
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || "your-secret-key";
@@ -134,26 +134,79 @@ async function getBlog(call, callback) {
 
 // Function to handle getting all blogs (public)
 async function getAllBlogs(call, callback) {
+  const {
+    page = 1,
+    pageSize = 10,
+    filter = "",       // "", "liked", "disliked"
+  } = call.request;
+
+  const offset = (page - 1) * pageSize;
+  const userId = call.user?.userId;
+
   try {
-    const blogs = await Blog.findAll();
+    let blogs = [];
+    let totalBlogs = 0;
+
+    // If "liked" or "disliked" filter is applied, we query BlogLikeDislike table
+    if (filter === "liked" || filter === "disliked") {
+      const likeCondition = filter === "liked" ? { like: true } : { dislike: true };
+
+      // Fetch blogs liked or disliked by the user
+      const { rows, count } = await BlogLikeDislike.findAndCountAll({
+        where: {
+          userId,
+          ...likeCondition
+        },
+        include: [
+          {
+            model: Blog,
+            required: true  // Ensure we are getting blogs only
+          }
+        ],
+        limit: pageSize,
+        offset
+      });
+
+      blogs = rows.map(entry => entry.Blog); // Extract only the blog details
+      totalBlogs = count; // Set the total blogs count from the matching entries
+
+    } else {
+      // If no filter, fetch all blogs
+      const { rows, count } = await Blog.findAndCountAll({
+        limit: pageSize,
+        offset
+      });
+
+      blogs = rows;
+      totalBlogs = count;
+    }
+
+    // Format the blog response
+    const response = blogs.map(blog => ({
+      blogId: blog.blogId.toString(),
+      title: blog.title,
+      content: blog.content,
+      author: blog.author,
+      likes: blog.likes,
+      dislikes: blog.dislikes
+    }));
+
+    // Send the response with total count of blogs and total pages
     callback(null, {
-      blogs: blogs.map((blog) => ({
-        blogId: blog.blogId.toString(),
-        title: blog.title,
-        content: blog.content,
-        author: blog.author,
-        likes: blog.likes,
-        dislikes: blog.dislikes,
-      })),
+      blogs: response,
+      totalBlogs,
+      totalPages: Math.ceil(totalBlogs / pageSize)
     });
+
   } catch (err) {
     console.error("Get all blogs error:", err);
     callback({
       code: grpc.status.INTERNAL,
-      details: "Error fetching blogs",
+      details: "Error fetching blogs"
     });
   }
 }
+
 
 // Function to handle updating a blog (protected)
 async function updateBlog(call, callback) {
@@ -406,83 +459,83 @@ async function dislikeBlog(call, callback) {
   }
 }
 
-async function getLikedBlogs(call, callback) {
-  const userId = call.user.userId;
+// async function getLikedBlogs(call, callback) {
+//   const userId = call.user.userId;
 
-  try {
-    const likedEntries = await BlogLikeDislike.findAll({
-      where: {
-        userId,
-        like: true
-      },
-      include: [
-        {
-          model: Blog,
-          required: true
-        }
-      ]
-    });
+//   try {
+//     const likedEntries = await BlogLikeDislike.findAll({
+//       where: {
+//         userId,
+//         like: true
+//       },
+//       include: [
+//         {
+//           model: Blog,
+//           required: true
+//         }
+//       ]
+//     });
 
-    const response = likedEntries.map(entry => {
-      const blog = entry.Blog;
-      return {
-        blogId: blog.blogId.toString(),
-        title: blog.title,
-        content: blog.content,
-        author: blog.author,
-        likes: blog.likes,
-        dislikes: blog.dislikes
-      };
-    });
+//     const response = likedEntries.map(entry => {
+//       const blog = entry.Blog;
+//       return {
+//         blogId: blog.blogId.toString(),
+//         title: blog.title,
+//         content: blog.content,
+//         author: blog.author,
+//         likes: blog.likes,
+//         dislikes: blog.dislikes
+//       };
+//     });
 
-    callback(null, { blogs: response });
-  } catch (err) {
-    console.error("Get liked blogs error:", err);
-    callback({
-      code: grpc.status.INTERNAL,
-      details: "Error fetching liked blogs"
-    });
-  }
-}
+//     callback(null, { blogs: response });
+//   } catch (err) {
+//     console.error("Get liked blogs error:", err);
+//     callback({
+//       code: grpc.status.INTERNAL,
+//       details: "Error fetching liked blogs"
+//     });
+//   }
+// }
 
-async function getDislikedBlogs(call, callback) {
-  const userId = call.user.userId;
+// async function getDislikedBlogs(call, callback) {
+//   const userId = call.user.userId;
 
-  try {
-    const dislikedEntries = await BlogLikeDislike.findAll({
-      where: {
-        userId,
-        dislike: true
-      },
-      include: [
-        {
-          model: Blog,
-          required: true
-        }
-      ]
-    });
+//   try {
+//     const dislikedEntries = await BlogLikeDislike.findAll({
+//       where: {
+//         userId,
+//         dislike: true
+//       },
+//       include: [
+//         {
+//           model: Blog,
+//           required: true
+//         }
+//       ]
+//     });
 
-    const response = dislikedEntries.map(entry => {
-      const blog = entry.Blog;
-      return {
-        blogId: blog.blogId.toString(),
-        title: blog.title,
-        content: blog.content,
-        author: blog.author,
-        likes: blog.likes,
-        dislikes: blog.dislikes
-      };
-    });
+//     const response = dislikedEntries.map(entry => {
+//       const blog = entry.Blog;
+//       return {
+//         blogId: blog.blogId.toString(),
+//         title: blog.title,
+//         content: blog.content,
+//         author: blog.author,
+//         likes: blog.likes,
+//         dislikes: blog.dislikes
+//       };
+//     });
 
-    callback(null, { blogs: response });
-  } catch (err) {
-    console.error("Get disliked blogs error:", err);
-    callback({
-      code: grpc.status.INTERNAL,
-      details: "Error fetching disliked blogs"
-    });
-  }
-}
+//     callback(null, { blogs: response });
+//   } catch (err) {
+//     console.error("Get disliked blogs error:", err);
+//     callback({
+//       code: grpc.status.INTERNAL,
+//       details: "Error fetching disliked blogs"
+//     });
+//   }
+// }
 
 async function getAnalytics(call, callback) {
   try {
@@ -510,13 +563,11 @@ const server = new grpc.Server();
 server.addService(blogProto.service, {
   createBlog: withAuth(createBlog),
   getBlog,
-  getAllBlogs,
+  getAllBlogs: withAuth(getAllBlogs),
   updateBlog: withAuth(updateBlog),
   deleteBlog: withAuth(deleteBlog),
   likeBlog: withAuth(likeBlog),
   dislikeBlog: withAuth(dislikeBlog),
-  getLikedBlogs: withAuth(getLikedBlogs),
-  getDislikedBlogs:withAuth(getDislikedBlogs),
   getAnalytics
 });
 
