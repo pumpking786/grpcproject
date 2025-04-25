@@ -15,8 +15,8 @@ function verifyToken(req, res, next) {
     : authHeader;
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET_KEY);
-    req.user = decoded; // Attach user data to request
+    // const decoded = jwt.verify(token, JWT_SECRET_KEY);
+    // req.user = decoded; // Attach user data to request //ALREADY VERIFIED IN SERVICES
 
     // Create gRPC metadata and attach to req
     const metadata = new grpc.Metadata();
